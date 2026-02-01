@@ -1,0 +1,13 @@
+node_modules/
+.env
+*.log
+.DS_Store
+dist/
+build/
+.vscode/
+*.local
+
+# Credentials
+*.json
+!package.json
+!package-lock.json
