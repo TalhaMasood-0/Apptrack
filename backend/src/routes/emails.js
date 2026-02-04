@@ -369,4 +369,33 @@ router.post('/:id/toggle-complete', requireAuth, async (req, res) => {
   }
 });
 
+router.post('/:id/set-category', requireAuth, async (req, res) => {
+  try {
+    const userEmail = req.session.user.email;
+    const gmailId = req.params.id;
+    const { category } = req.body;
+    
+    if (!category || !CATEGORIES[category]) {
+      return res.status(400).json({ error: 'Invalid category' });
+    }
+    
+    if (!dbConnected()) {
+      return res.status(400).json({ error: 'Database not connected' });
+    }
+    
+    await updateEmailCategory(gmailId, userEmail, category);
+    
+    res.json({ 
+      emailId: gmailId, 
+      category,
+      categoryInfo: CATEGORIES[category],
+      confidence: 1.0,
+      manual: true
+    });
+  } catch (error) {
+    console.error('Error setting category:', error);
+    res.status(500).json({ error: 'Failed to set category' });
+  }
+});
+
 export default router;

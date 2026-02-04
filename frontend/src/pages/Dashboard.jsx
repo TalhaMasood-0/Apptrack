@@ -421,6 +421,62 @@ function Dashboard() {
 
   const uncategorizedCount = emails.filter(e => !categories[e.id]).length;
 
+  const [draggedEmail, setDraggedEmail] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
+
+  function handleDragStart(e, emailId) {
+    setDraggedEmail(emailId);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragEnd() {
+    setDraggedEmail(null);
+    setDropTarget(null);
+  }
+
+  function handleDragOver(e, category) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTarget(category);
+  }
+
+  function handleDragLeave() {
+    setDropTarget(null);
+  }
+
+  async function handleDrop(e, category) {
+    e.preventDefault();
+    setDropTarget(null);
+    
+    if (!draggedEmail || !category) return;
+    
+    try {
+      const res = await fetch(`${config.apiUrl}/api/emails/${draggedEmail}/set-category`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ category })
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(prev => ({
+          ...prev,
+          [draggedEmail]: {
+            category: data.category,
+            categoryInfo: CATEGORY_CONFIG[data.category],
+            confidence: 1.0,
+            manual: true
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to set category:', error);
+    }
+    
+    setDraggedEmail(null);
+  }
+
   return (
     <div className="dashboard">
       {/* New email alert */}
@@ -483,8 +539,11 @@ function Dashboard() {
               return (
                 <button
                   key={key}
-                  className={`nav-item ${filter === key ? 'active' : ''}`}
+                  className={`nav-item ${filter === key ? 'active' : ''} ${dropTarget === key ? 'drop-target' : ''}`}
                   onClick={() => setFilter(key)}
+                  onDragOver={(e) => handleDragOver(e, key)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, key)}
                 >
                   <Icon size={18} style={{ color: config.color }} />
                   <span>{config.name}</span>
@@ -582,9 +641,12 @@ function Dashboard() {
                 return (
                   <div
                     key={email.id}
-                    className={`email-item animate-in ${selectedEmail === email.id ? 'selected' : ''} ${isCompleted ? 'completed' : ''} ${isNew ? 'is-new' : ''}`}
+                    className={`email-item animate-in ${selectedEmail === email.id ? 'selected' : ''} ${isCompleted ? 'completed' : ''} ${isNew ? 'is-new' : ''} ${draggedEmail === email.id ? 'dragging' : ''}`}
                     style={{ animationDelay: `${index * 0.02}s` }}
                     onClick={() => openEmail(email)}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, email.id)}
+                    onDragEnd={handleDragEnd}
                   >
                     {isNew && <div className="new-badge">NEW</div>}
                     <div className="email-main">

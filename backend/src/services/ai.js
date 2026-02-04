@@ -70,39 +70,48 @@ export async function categorizeEmail(emailData) {
 export async function categorizeEmailsBatch(emailsData) {
   if (emailsData.length === 0) return [];
   
-  const emailDescriptions = emailsData.map((email, index) => {
-    return `EMAIL ${index + 1}:
-From: ${email.from}
-Subject: ${email.subject}
-Preview: ${email.snippet}
-${email.body ? `Content: ${email.body.substring(0, 500)}` : ''}`;
-  }).join('\n\n---\n\n');
+  // Process in smaller batches for better accuracy
+  if (emailsData.length > 5) {
+    const results = [];
+    for (let i = 0; i < emailsData.length; i += 5) {
+      const batch = emailsData.slice(i, i + 5);
+      const batchResults = await categorizeEmailsBatch(batch);
+      results.push(...batchResults);
+      if (i + 5 < emailsData.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    return results;
+  }
   
-  const prompt = `Categorize these job search emails. Pick ONE category per email.
+  const emailDescriptions = emailsData.map((email, index) => {
+    const body = email.body ? email.body.substring(0, 800) : '';
+    return `[EMAIL ${index + 1}]
+FROM: ${email.from}
+SUBJECT: ${email.subject}
+BODY: ${email.snippet} ${body}`;
+  }).join('\n\n');
+  
+  const prompt = `Categorize each email into exactly ONE category.
 
-CATEGORIES:
-- APPLICATION_RECEIVED: Use this for ANY email that acknowledges receiving an application. Keywords: "thank you for applying", "thanks for your interest", "we received your application", "application submitted", "application confirmed", "we will review", "our team will review". Even if it mentions next steps or timeline, if it's primarily an acknowledgment, use this.
-- OA_REQUIRED: Contains a link to coding challenge (HackerRank, Codility, LeetCode, CodeSignal, etc.) or take-home assignment
-- INTERVIEW_SCHEDULE: Asking YOU to pick/schedule a time for interview
-- INTERVIEW_CONFIRMATION: Interview is already scheduled with specific date/time
-- REJECTION: "Moving forward with other candidates", "position filled", "not selected", "unfortunately"
-- OFFER: Explicit job offer with compensation/salary details
-- FOLLOW_UP: Requesting documents, references, or action from you (not just "we'll be in touch")
-- RECRUITER_OUTREACH: Cold outreach, "your profile matches", job board newsletters (SWE List, Simplify)
-- STATUS_UPDATE: ONLY use this for mid-process updates like "still reviewing", "moved to next round" that don't fit above. Do NOT use for application acknowledgments.
-- NOT_JOB_RELATED: Piazza, school forums, LinkedIn notifications (views, connections, likes)
+CATEGORY RULES (in priority order):
+1. APPLICATION_RECEIVED - ANY "thank you for applying", "thanks for your interest", "application received", "we received your application", acknowledgment of submission
+2. OA_REQUIRED - Contains coding challenge link (HackerRank, Codility, CodeSignal, LeetCode) or assessment
+3. INTERVIEW_SCHEDULE - Asking to pick/schedule interview time
+4. INTERVIEW_CONFIRMATION - Interview already scheduled with date/time
+5. OFFER - Explicit job offer with compensation details
+6. REJECTION - "not moving forward", "other candidates", "position filled"
+7. FOLLOW_UP - Requesting documents, references, or specific action
+8. RECRUITER_OUTREACH - Cold outreach, job board emails (SWE List, Simplify), "your profile matches"
+9. NOT_JOB_RELATED - Piazza, school forums, LinkedIn notifications, social media
+10. STATUS_UPDATE - ONLY if none of above fit. Mid-process updates like "still reviewing"
 
-CRITICAL: If email says "thank you for applying" or "thank you for your interest" -> APPLICATION_RECEIVED, never STATUS_UPDATE
+IMPORTANT: "Thank you for applying" = APPLICATION_RECEIVED, not STATUS_UPDATE
 
 ${emailDescriptions}
 
-Respond with a JSON array containing one object per email IN ORDER:
-[
-  {"email": 1, "category": "CATEGORY_NAME", "confidence": 0.95, "company": "Company Name or null", "action_needed": "Brief action if any or null"},
-  {"email": 2, "category": "CATEGORY_NAME", "confidence": 0.90, "company": "Company Name or null", "action_needed": "Brief action if any or null"}
-]
-
-Respond ONLY with the JSON array, no markdown or explanation.`;
+JSON array response (no markdown):
+[{"email":1,"category":"CATEGORY","confidence":0.9,"company":"Name","action_needed":null}]`;
 
   const maxRetries = 3;
   let lastError = null;

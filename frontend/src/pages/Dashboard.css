@@ -896,3 +896,33 @@
     max-width: 100%;
   }
 }
+
+/* Drag and Drop */
+.email-item[draggable="true"] {
+  cursor: grab;
+}
+
+.email-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.email-item.dragging {
+  opacity: 0.5;
+  border: 2px dashed var(--accent-warm);
+}
+
+.nav-item.drop-target {
+  background: var(--accent-warm);
+  color: white;
+  transform: scale(1.02);
+  box-shadow: 0 0 0 2px var(--accent-warm), 0 4px 12px rgba(201, 106, 60, 0.3);
+}
+
+.nav-item.drop-target svg {
+  color: white !important;
+}
+
+.nav-item.drop-target .nav-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
