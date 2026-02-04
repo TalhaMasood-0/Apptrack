@@ -1,5 +1,7 @@
 node_modules/
 .env
+.env.*
+!.env.example
 *.log
 .DS_Store
 dist/
@@ -11,3 +13,4 @@ build/
 *.json
 !package.json
 !package-lock.json
+!tsconfig.json

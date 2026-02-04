@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
+import config from '../config';
 import { 
   Mail, LogOut, RefreshCw, Sparkles, ChevronRight, X,
   FileText, Calendar, CalendarCheck, Inbox, XCircle,
@@ -172,7 +173,7 @@ function Dashboard() {
 
   async function loadCompletedActions() {
     try {
-      const res = await fetch('/auth/me', { credentials: 'include' });
+      const res = await fetch(`${config.apiUrl}/auth/me`, { credentials: 'include' });
       const data = await res.json();
       if (data.completedActions) {
         setCompletedActions(data.completedActions);
@@ -186,7 +187,7 @@ function Dashboard() {
     setLoading(true);
     try {
       const filterParam = showAllEmails ? 'false' : 'true';
-      const res = await fetch(`/api/emails?maxResults=50&filterJobs=${filterParam}`, { 
+      const res = await fetch(`${config.apiUrl}/api/emails?maxResults=50&filterJobs=${filterParam}`, { 
         credentials: 'include' 
       });
       const data = await res.json();
@@ -228,7 +229,7 @@ function Dashboard() {
   async function fetchEmailDetail(emailId) {
     setLoadingDetail(true);
     try {
-      const res = await fetch(`/api/emails/${emailId}`, { credentials: 'include' });
+      const res = await fetch(`${config.apiUrl}/api/emails/${emailId}`, { credentials: 'include' });
       const data = await res.json();
       setEmailDetail(data);
     } catch (error) {
@@ -242,8 +243,8 @@ function Dashboard() {
     setCategorizing(prev => ({ ...prev, [emailId]: true }));
     try {
       const url = force 
-        ? `/api/emails/${emailId}/categorize?force=true`
-        : `/api/emails/${emailId}/categorize`;
+        ? `${config.apiUrl}/api/emails/${emailId}/categorize?force=true`
+        : `${config.apiUrl}/api/emails/${emailId}/categorize`;
       const res = await fetch(url, {
         method: 'POST',
         credentials: 'include'
@@ -280,7 +281,7 @@ function Dashboard() {
       for (let i = 0; i < uncategorized.length; i += 10) {
         const batch = uncategorized.slice(i, i + 10);
         
-        const res = await fetch('/api/emails/categorize-batch', {
+        const res = await fetch(`${config.apiUrl}/api/emails/categorize-batch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -337,7 +338,7 @@ function Dashboard() {
 
   async function toggleActionComplete(emailId) {
     try {
-      const res = await fetch(`/api/emails/${emailId}/toggle-complete`, {
+      const res = await fetch(`${config.apiUrl}/api/emails/${emailId}/toggle-complete`, {
         method: 'POST',
         credentials: 'include'
       });

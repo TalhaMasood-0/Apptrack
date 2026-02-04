@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import config from '../config';
 
 export function useWebSocket(userEmail, onNewEmails) {
   const ws = useRef(null);
@@ -9,8 +10,7 @@ export function useWebSocket(userEmail, onNewEmails) {
   const connect = useCallback(() => {
     if (!userEmail) return;
     
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.hostname}:3001/ws`;
+    const wsUrl = config.wsUrl || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:3001/ws`;
     
     try {
       ws.current = new WebSocket(wsUrl);

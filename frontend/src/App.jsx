@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import { AuthContext } from './context/AuthContext';
+import config from './config';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -14,7 +15,7 @@ function App() {
 
   async function checkAuth() {
     try {
-      const res = await fetch('/auth/me', { credentials: 'include' });
+      const res = await fetch(`${config.apiUrl}/auth/me`, { credentials: 'include' });
       const data = await res.json();
       if (data.authenticated) {
         setUser(data.user);
@@ -28,7 +29,7 @@ function App() {
 
   async function logout() {
     try {
-      await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+      await fetch(`${config.apiUrl}/auth/logout`, { method: 'POST', credentials: 'include' });
       setUser(null);
     } catch (error) {
       console.error('Logout failed:', error);

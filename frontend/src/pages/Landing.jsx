@@ -1,9 +1,10 @@
 import { Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
+import config from '../config';
 import './Landing.css';
 
 function Landing() {
   const handleLogin = () => {
-    window.location.href = '/auth/google';
+    window.location.href = `${config.apiUrl}/auth/google`;
   };
 
   return (
