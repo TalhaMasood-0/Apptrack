@@ -1,9 +1,8 @@
 import { PubSub } from '@google-cloud/pubsub';
 import { google } from 'googleapis';
 import { notifyUser } from './websocket.js';
-import { categorizeEmail } from './ai.js';
 import { calculateRelevanceScore } from './filter.js';
-import { getUserTokens as getDbTokens, upsertEmail, isConnected as dbConnected } from './database.js';
+import { getUserTokens as getDbTokens, isConnected as dbConnected } from './database.js';
 
 let pubsub;
 let subscription;
@@ -127,37 +126,6 @@ async function fetchNewEmails(tokens, userEmail) {
         };
         
         email.relevance = calculateRelevanceScore(email);
-        
-        if (email.relevance.score >= 6) {
-          try {
-            const category = await categorizeEmail({
-              from: email.from,
-              subject: email.subject,
-              snippet: email.snippet
-            });
-            email.category = category;
-            
-            if (dbConnected()) {
-              await upsertEmail({
-                gmailId: email.id,
-                userEmail,
-                threadId: email.threadId,
-                from: email.from,
-                subject: email.subject,
-                snippet: email.snippet,
-                date: new Date(email.date),
-                category: category.category,
-                confidence: category.confidence,
-                company: category.company,
-                actionNeeded: category.actionNeeded,
-                relevanceScore: email.relevance.score
-              });
-            }
-          } catch (err) {
-            console.error('Auto-categorization failed:', err);
-          }
-        }
-        
         return email;
       })
     );

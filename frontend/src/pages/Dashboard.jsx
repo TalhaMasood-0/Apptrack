@@ -11,30 +11,6 @@ import {
 import './Dashboard.css';
 
 const CATEGORY_CONFIG = {
-  OA_REQUIRED: { 
-    icon: FileText, 
-    color: '#C45D3A', 
-    bg: '#FCEAE5',
-    name: 'Online Assessment',
-    priority: 1,
-    isActionable: true
-  },
-  INTERVIEW_SCHEDULE: { 
-    icon: Calendar, 
-    color: '#2D7D6F', 
-    bg: '#E5F4F2',
-    name: 'Schedule Interview',
-    priority: 2,
-    isActionable: true
-  },
-  INTERVIEW_CONFIRMATION: { 
-    icon: CalendarCheck, 
-    color: '#3D6B99', 
-    bg: '#E5EEF7',
-    name: 'Interview Confirmed',
-    priority: 3,
-    isActionable: false
-  },
   OFFER: { 
     icon: Gift, 
     color: '#2D8A4E', 
@@ -43,12 +19,36 @@ const CATEGORY_CONFIG = {
     priority: 1,
     isActionable: true
   },
+  OA_REQUIRED: { 
+    icon: FileText, 
+    color: '#C45D3A', 
+    bg: '#FCEAE5',
+    name: 'Online Assessment',
+    priority: 2,
+    isActionable: true
+  },
+  INTERVIEW_SCHEDULE: { 
+    icon: Calendar, 
+    color: '#2D7D6F', 
+    bg: '#E5F4F2',
+    name: 'Schedule Interview',
+    priority: 3,
+    isActionable: true
+  },
+  INTERVIEW_CONFIRMATION: { 
+    icon: CalendarCheck, 
+    color: '#3D6B99', 
+    bg: '#E5EEF7',
+    name: 'Interview Confirmed',
+    priority: 4,
+    isActionable: false
+  },
   FOLLOW_UP: { 
     icon: MessageCircle, 
     color: '#C9913A', 
     bg: '#FDF4E5',
     name: 'Follow Up Needed',
-    priority: 2,
+    priority: 5,
     isActionable: true
   },
   RECRUITER_OUTREACH: { 
@@ -56,7 +56,7 @@ const CATEGORY_CONFIG = {
     color: '#7B4B94', 
     bg: '#F4EBF7',
     name: 'Recruiter Outreach',
-    priority: 4,
+    priority: 6,
     isActionable: false
   },
   APPLICATION_RECEIVED: { 
@@ -64,7 +64,7 @@ const CATEGORY_CONFIG = {
     color: '#7A7A7A', 
     bg: '#F5F5F5',
     name: 'Application Received',
-    priority: 5,
+    priority: 7,
     isActionable: false
   },
   STATUS_UPDATE: { 
@@ -72,7 +72,7 @@ const CATEGORY_CONFIG = {
     color: '#5B7BB3', 
     bg: '#EBF0F7',
     name: 'Status Update',
-    priority: 4,
+    priority: 8,
     isActionable: false
   },
   REJECTION: { 
@@ -80,7 +80,7 @@ const CATEGORY_CONFIG = {
     color: '#4A4A4A', 
     bg: '#EFEFEF',
     name: 'Rejection',
-    priority: 6,
+    priority: 9,
     isActionable: false
   },
   NOT_JOB_RELATED: { 
@@ -88,7 +88,7 @@ const CATEGORY_CONFIG = {
     color: '#A0A0A0', 
     bg: '#F8F8F8',
     name: 'Not Job Related',
-    priority: 7,
+    priority: 10,
     isActionable: false
   }
 };
@@ -96,10 +96,29 @@ const CATEGORY_CONFIG = {
 // Strip HTML tags and decode entities for display
 function stripHtml(html) {
   if (!html) return '';
+  
+  let text = html;
+  
+  // Remove style tags and their content
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  
+  // Remove script tags and their content
+  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  
+  // Remove CSS-like content (body{...}, .class{...}, etc.)
+  text = text.replace(/[a-z.#][a-z0-9_-]*\s*\{[^}]*\}/gi, '');
+  
+  // Remove HTML tags
+  text = text.replace(/<[^>]+>/g, ' ');
+  
+  // Decode HTML entities
   const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  let text = tmp.textContent || tmp.innerText || '';
+  tmp.innerHTML = text;
+  text = tmp.textContent || tmp.innerText || '';
+  
+  // Clean up whitespace
   text = text.replace(/\s+/g, ' ').trim();
+  
   return text;
 }
 
@@ -178,24 +197,26 @@ function Dashboard() {
         jobRelated: data.jobRelatedCount || fetchedEmails.length
       });
       
-      // Load stored categories
       const storedCats = {};
+      const completedStatus = {};
+      
       fetchedEmails.forEach(email => {
-        if (email.storedCategory) {
+        if (email.storedCategory && email.storedCategory.category) {
           storedCats[email.id] = {
             category: email.storedCategory.category,
             categoryInfo: CATEGORY_CONFIG[email.storedCategory.category],
-            confidence: email.storedCategory.confidence,
+            confidence: email.storedCategory.confidence || 0.8,
             company: email.storedCategory.company,
             actionNeeded: email.storedCategory.actionNeeded
           };
-          // Load completed status
           if (email.storedCategory.isActionComplete) {
-            setCompletedActions(prev => ({ ...prev, [email.id]: true }));
+            completedStatus[email.id] = true;
           }
         }
       });
-      setCategories(prev => ({ ...prev, ...storedCats }));
+      
+      setCategories(storedCats);
+      setCompletedActions(completedStatus);
       
     } catch (error) {
       console.error('Failed to fetch emails:', error);
@@ -217,15 +238,27 @@ function Dashboard() {
     }
   }
 
-  async function categorizeEmail(emailId) {
+  async function categorizeEmail(emailId, force = false) {
     setCategorizing(prev => ({ ...prev, [emailId]: true }));
     try {
-      const res = await fetch(`/api/emails/${emailId}/categorize`, {
+      const url = force 
+        ? `/api/emails/${emailId}/categorize?force=true`
+        : `/api/emails/${emailId}/categorize`;
+      const res = await fetch(url, {
         method: 'POST',
         credentials: 'include'
       });
       const data = await res.json();
-      setCategories(prev => ({ ...prev, [emailId]: data }));
+      setCategories(prev => ({ 
+        ...prev, 
+        [emailId]: {
+          category: data.category,
+          categoryInfo: CATEGORY_CONFIG[data.category],
+          confidence: data.confidence,
+          company: data.company,
+          actionNeeded: data.actionNeeded
+        }
+      }));
     } catch (error) {
       console.error('Categorization failed:', error);
     } finally {
@@ -233,22 +266,19 @@ function Dashboard() {
     }
   }
 
-  // Batch categorize - saves tokens!
   async function categorizeAll() {
     const uncategorized = emails.filter(e => !categories[e.id]).map(e => e.id);
     if (uncategorized.length === 0) return;
     
     setCategorizingAll(true);
     
-    // Mark all as categorizing
     const categorizingState = {};
     uncategorized.forEach(id => { categorizingState[id] = true; });
     setCategorizing(prev => ({ ...prev, ...categorizingState }));
     
     try {
-      // Process in batches of 15
-      for (let i = 0; i < uncategorized.length; i += 15) {
-        const batch = uncategorized.slice(i, i + 15);
+      for (let i = 0; i < uncategorized.length; i += 10) {
+        const batch = uncategorized.slice(i, i + 10);
         
         const res = await fetch('/api/emails/categorize-batch', {
           method: 'POST',
@@ -257,18 +287,32 @@ function Dashboard() {
           body: JSON.stringify({ emailIds: batch })
         });
         
+        if (!res.ok) {
+          console.error('Batch request failed:', res.status);
+          continue;
+        }
+        
         const data = await res.json();
         
-        // Update categories
-        const newCategories = {};
-        data.results.forEach(result => {
-          if (!result.error) {
-            newCategories[result.emailId] = result;
+        if (data.results && Array.isArray(data.results)) {
+          const newCategories = {};
+          data.results.forEach(result => {
+            if (result && result.emailId && !result.error) {
+              newCategories[result.emailId] = {
+                category: result.category,
+                categoryInfo: CATEGORY_CONFIG[result.category],
+                confidence: result.confidence,
+                company: result.company,
+                actionNeeded: result.actionNeeded
+              };
+            }
+          });
+          
+          if (Object.keys(newCategories).length > 0) {
+            setCategories(prev => ({ ...prev, ...newCategories }));
           }
-        });
-        setCategories(prev => ({ ...prev, ...newCategories }));
+        }
         
-        // Clear categorizing state for this batch
         const clearState = {};
         batch.forEach(id => { clearState[id] = false; });
         setCategorizing(prev => ({ ...prev, ...clearState }));
@@ -341,8 +385,7 @@ function Dashboard() {
     return match ? match[1].trim().replace(/"/g, '') : from;
   }
 
-  // Filter and search logic
-  let filteredEmails = emails;
+  let filteredEmails = [...emails];
   
   if (filter === 'ACTION') {
     filteredEmails = filteredEmails.filter(e => {
@@ -400,7 +443,7 @@ function Dashboard() {
         </div>
 
         <div className="user-section">
-          {user?.picture && <img src={user.picture} alt="" className="user-avatar" />}
+          {user?.picture && <img src={user.picture} alt="" className="user-avatar" referrerPolicy="no-referrer" />}
           <div className="user-info">
             <span className="user-name">{user?.name?.split(' ')[0]}</span>
             <span className="user-email">{user?.email}</span>
@@ -647,7 +690,7 @@ function Dashboard() {
                   </div>
                 </div>
                 
-                {categories[selectedEmail] && (
+                {categories[selectedEmail] ? (
                   <div className="detail-category">
                     <div 
                       className="category-badge large"
@@ -664,25 +707,62 @@ function Dashboard() {
                         {categories[selectedEmail].actionNeeded}
                       </p>
                     )}
-                    {CATEGORY_CONFIG[categories[selectedEmail].category]?.isActionable && (
+                    <div className="detail-actions">
+                      {CATEGORY_CONFIG[categories[selectedEmail].category]?.isActionable && (
+                        <button
+                          className={`mark-complete-btn ${completedActions[selectedEmail] ? 'completed' : ''}`}
+                          onClick={() => toggleActionComplete(selectedEmail)}
+                        >
+                          {completedActions[selectedEmail] ? (
+                            <>
+                              <CheckCircle2 size={16} />
+                              Marked as Done
+                            </>
+                          ) : (
+                            <>
+                              <Check size={16} />
+                              Mark as Done
+                            </>
+                          )}
+                        </button>
+                      )}
                       <button
-                        className={`mark-complete-btn ${completedActions[selectedEmail] ? 'completed' : ''}`}
-                        onClick={() => toggleActionComplete(selectedEmail)}
+                        className="recategorize-btn"
+                        onClick={() => categorizeEmail(selectedEmail, true)}
+                        disabled={categorizing[selectedEmail]}
                       >
-                        {completedActions[selectedEmail] ? (
+                        {categorizing[selectedEmail] ? (
                           <>
-                            <CheckCircle2 size={16} />
-                            Marked as Done
+                            <Loader2 size={16} className="spinning" />
+                            Re-categorizing...
                           </>
                         ) : (
                           <>
-                            <Check size={16} />
-                            Mark as Done
+                            <RefreshCw size={16} />
+                            Re-categorize
                           </>
                         )}
                       </button>
-                    )}
+                    </div>
                   </div>
+                ) : (
+                  <button
+                    className="categorize-detail-btn"
+                    onClick={() => categorizeEmail(selectedEmail)}
+                    disabled={categorizing[selectedEmail]}
+                  >
+                    {categorizing[selectedEmail] ? (
+                      <>
+                        <Loader2 size={16} className="spinning" />
+                        Categorizing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        Categorize this email
+                      </>
+                    )}
+                  </button>
                 )}
                 
                 <div className="detail-body">

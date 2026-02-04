@@ -76,20 +76,22 @@ router.get('/', requireAuth, async (req, res) => {
     const gmailIds = emails.map(e => e.id);
     const storedCategories = await getEmailCategoriesBatch(gmailIds, userEmail);
     
-    let resultEmails;
-    if (filterJobs === 'true') {
-      resultEmails = filterJobRelatedEmails(emails, 6);
-    } else {
-      resultEmails = emails.map(email => ({
-        ...email,
-        relevance: calculateRelevanceScore(email)
-      }));
+    const storedCount = Object.keys(storedCategories).length;
+    if (storedCount > 0) {
+      console.log(`Loaded ${storedCount} stored categories for ${userEmail}`);
     }
     
-    resultEmails = resultEmails.map(email => ({
+    let resultEmails = emails.map(email => ({
       ...email,
+      relevance: calculateRelevanceScore(email),
       storedCategory: storedCategories[email.id] || null
     }));
+    
+    if (filterJobs === 'true') {
+      resultEmails = resultEmails.filter(email => 
+        email.relevance.score >= 6 || email.storedCategory !== null
+      );
+    }
     
     res.json({
       emails: resultEmails,
@@ -232,11 +234,15 @@ router.post('/categorize-batch', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'emailIds array required' });
     }
     
+    if (emailIds.length === 0) {
+      return res.json({ results: [], stats: { total: 0, processed: 0, categorizedWithAI: 0, skippedLowRelevance: 0, errors: 0 } });
+    }
+    
     const oauth2Client = getAuthenticatedClient(req.session.tokens);
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
     const userEmail = req.session.user.email;
     
-    const batchIds = emailIds.slice(0, 15);
+    const batchIds = emailIds.slice(0, 10);
     
     const emailsData = await Promise.all(
       batchIds.map(async (id) => {

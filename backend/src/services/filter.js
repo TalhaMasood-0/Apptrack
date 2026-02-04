@@ -8,6 +8,8 @@ const JOB_KEYWORDS = {
     'phone screen', 'technical interview', 'onsite interview', 'final round',
     'we are pleased', 'we regret', 'move forward', 'next steps',
     'your application', 'application status', 'application received',
+    'thank you for applying', 'thanks for applying', 'thank you for your interest',
+    'thank you for your application', 'we received your application',
     'internship', 'internships', 'new internship', 'posted today',
     'job alert', 'job posting', 'new jobs', 'new positions'
   ],
@@ -55,19 +57,31 @@ const SPAM_KEYWORDS = [
   'crypto investment', 'bitcoin opportunity'
 ];
 
+const NOT_JOB_SENDERS = [
+  'piazza', 'no-reply@piazza',
+  'digest-noreply@quora',
+  'notification@facebookmail',
+  'noreply@discord',
+  'noreply@reddit'
+];
+
+const NOT_JOB_PATTERNS = [
+  'viewed your profile', 'connection request', 'accepted your invitation',
+  'commented on your post', 'liked your post', 'mentioned you',
+  'new post in', 'digest for', 'weekly digest',
+  'appeared in search', 'who viewed', 'your network'
+];
+
 const JOB_SENDER_PATTERNS = [
   'recruit', 'talent', 'hiring', 'careers', 'jobs', 'hr@', 'people',
   'opportunities', 'staffing', 'workforce',
-  'linkedin', 'indeed', 'glassdoor', 'ziprecruiter', 'monster',
+  'indeed', 'glassdoor', 'ziprecruiter', 'monster',
   'lever', 'greenhouse', 'workday', 'icims', 'smartrecruiters', 
   'ashby', 'gem.com', 'beamery', 'phenom',
   'hackerrank', 'codility', 'codesignal', 'hirevue', 'karat',
   'dataannotation', 'remotasks', 'turing', 'toptal', 'upwork', 
   'wellfound', 'angel', 'hired', 'triplebyte', 'interviewing.io',
-  'google', 'meta', 'amazon', 'apple', 'microsoft', 'netflix',
-  'stripe', 'coinbase', 'robinhood', 'plaid', 'uber', 'lyft', 'airbnb',
-  'noreply', 'no-reply', 'notifications',
-  'swelist', 'simplify', 'pitt csc', 'levels.fyi', 'blind',
+  'swelist', 'simplify', 'pitt csc', 'levels.fyi',
   'handshake', 'ripplematch', 'wayup', 'untapped', 'jumpstart'
 ];
 
@@ -79,6 +93,19 @@ export function calculateRelevanceScore(email) {
   
   let score = 0;
   const reasons = [];
+  
+  for (const sender of NOT_JOB_SENDERS) {
+    if (fromLower.includes(sender)) {
+      return { score: -100, isJobRelated: false, confidence: 1, reasons: [`Excluded sender: ${sender}`] };
+    }
+  }
+  
+  for (const pattern of NOT_JOB_PATTERNS) {
+    if (text.includes(pattern) || subjectLower.includes(pattern)) {
+      score -= 50;
+      reasons.push(`Not job: "${pattern}"`);
+    }
+  }
   
   for (const pattern of JOB_SENDER_PATTERNS) {
     if (fromLower.includes(pattern)) {

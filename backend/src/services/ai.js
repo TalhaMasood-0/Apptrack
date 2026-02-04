@@ -78,21 +78,21 @@ Preview: ${email.snippet}
 ${email.body ? `Content: ${email.body.substring(0, 500)}` : ''}`;
   }).join('\n\n---\n\n');
   
-  const prompt = `You are categorizing emails for a software engineer tracking their job search.
+  const prompt = `Categorize these job search emails. Pick ONE category per email.
 
-IMPORTANT: Be INCLUSIVE. If an email is about ANY job/work opportunity, freelance gig, recruiter contact, or career-related matter, it IS job-related.
+CATEGORIES:
+- APPLICATION_RECEIVED: Use this for ANY email that acknowledges receiving an application. Keywords: "thank you for applying", "thanks for your interest", "we received your application", "application submitted", "application confirmed", "we will review", "our team will review". Even if it mentions next steps or timeline, if it's primarily an acknowledgment, use this.
+- OA_REQUIRED: Contains a link to coding challenge (HackerRank, Codility, LeetCode, CodeSignal, etc.) or take-home assignment
+- INTERVIEW_SCHEDULE: Asking YOU to pick/schedule a time for interview
+- INTERVIEW_CONFIRMATION: Interview is already scheduled with specific date/time
+- REJECTION: "Moving forward with other candidates", "position filled", "not selected", "unfortunately"
+- OFFER: Explicit job offer with compensation/salary details
+- FOLLOW_UP: Requesting documents, references, or action from you (not just "we'll be in touch")
+- RECRUITER_OUTREACH: Cold outreach, "your profile matches", job board newsletters (SWE List, Simplify)
+- STATUS_UPDATE: ONLY use this for mid-process updates like "still reviewing", "moved to next round" that don't fit above. Do NOT use for application acknowledgments.
+- NOT_JOB_RELATED: Piazza, school forums, LinkedIn notifications (views, connections, likes)
 
-Categories (pick exactly ONE per email):
-- OA_REQUIRED: Contains a coding challenge link, HackerRank, Codility, LeetCode, technical assessment, or take-home assignment
-- INTERVIEW_SCHEDULE: Asking to schedule/pick a time for an interview, phone screen, or call
-- INTERVIEW_CONFIRMATION: Confirms an interview is scheduled with specific date/time
-- APPLICATION_RECEIVED: Simple acknowledgment that an application was received
-- REJECTION: "Moving forward with other candidates", position filled, not selected, etc.
-- OFFER: Job offer, compensation details, offer letter
-- FOLLOW_UP: Requesting documents, references, additional info, or any response needed
-- RECRUITER_OUTREACH: Initial contact about a job opportunity, role suggestion, "your profile matches", freelance/gig opportunity (DataAnnotation, Turing, Upwork, etc.), "we have a role", JOB BOARD EMAILS/NEWSLETTERS (SWEList, Simplify, job alerts, new internships posted, daily job updates, etc.)
-- STATUS_UPDATE: General update on hiring process without specific action needed
-- NOT_JOB_RELATED: ONLY use this for clearly non-job content: shopping receipts, social media notifications, personal emails, bank statements. DO NOT use for job boards, job newsletters, or career-related content
+CRITICAL: If email says "thank you for applying" or "thank you for your interest" -> APPLICATION_RECEIVED, never STATUS_UPDATE
 
 ${emailDescriptions}
 
@@ -104,55 +104,71 @@ Respond with a JSON array containing one object per email IN ORDER:
 
 Respond ONLY with the JSON array, no markdown or explanation.`;
 
-  try {
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
+  const maxRetries = 3;
+  let lastError = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await getOpenAIClient().chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
         {
           role: 'system',
-          content: 'You categorize job-related emails in batches. Be INCLUSIVE - freelance, gig work, recruiter outreach, job boards, job newsletters (SWEList, Simplify, etc.), and internship alerts are ALL job-related and should be RECRUITER_OUTREACH. Only mark as NOT_JOB_RELATED if truly unrelated to career/work (shopping, social media, etc.). Respond only with valid JSON array.'
+          content: 'Categorize job emails. CRITICAL: "Thank you for applying/your interest" = APPLICATION_RECEIVED (never STATUS_UPDATE). STATUS_UPDATE is only for mid-process updates. Respond with JSON array only.'
         },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.2,
-      max_tokens: 150 * emailsData.length
-    });
-    
-    const content = response.choices[0].message.content.trim();
-    const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
-    const results = JSON.parse(jsonStr);
-    
-    return emailsData.map((emailData, index) => {
-      const result = results.find(r => r.email === index + 1) || results[index];
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 150 * emailsData.length
+      });
       
-      if (!result || !CATEGORIES[result.category]) {
+      const content = response.choices[0].message.content.trim();
+      const jsonStr = content.replace(/```json\n?|\n?```/g, '').trim();
+      const results = JSON.parse(jsonStr);
+      
+      return emailsData.map((emailData, index) => {
+        const result = results.find(r => r.email === index + 1) || results[index];
+        
+        if (!result || !CATEGORIES[result.category]) {
+          return {
+            category: 'STATUS_UPDATE',
+            categoryInfo: CATEGORIES.STATUS_UPDATE,
+            confidence: 0.3,
+            company: null,
+            actionNeeded: null
+          };
+        }
+        
         return {
-          category: 'STATUS_UPDATE',
-          categoryInfo: CATEGORIES.STATUS_UPDATE,
-          confidence: 0.3,
-          company: null,
-          actionNeeded: null
+          category: result.category,
+          categoryInfo: CATEGORIES[result.category],
+          confidence: result.confidence,
+          company: result.company,
+          actionNeeded: result.action_needed
         };
+      });
+      
+    } catch (error) {
+      lastError = error;
+      
+      if (error.status === 429) {
+        const retryAfter = error.headers?.['retry-after-ms'] || 2000 * (attempt + 1);
+        console.log(`Rate limited, waiting ${retryAfter}ms before retry ${attempt + 1}/${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter)));
+        continue;
       }
       
-      return {
-        category: result.category,
-        categoryInfo: CATEGORIES[result.category],
-        confidence: result.confidence,
-        company: result.company,
-        actionNeeded: result.action_needed
-      };
-    });
-    
-  } catch (error) {
-    console.error('Categorization error:', error);
-    return emailsData.map(() => ({
-      category: 'STATUS_UPDATE',
-      categoryInfo: CATEGORIES.STATUS_UPDATE,
-      confidence: 0.3,
-      company: null,
-      actionNeeded: null,
-      error: 'Categorization failed'
-    }));
+      console.error('Categorization error:', error.message);
+      break;
+    }
   }
+  
+  return emailsData.map(() => ({
+    category: 'STATUS_UPDATE',
+    categoryInfo: CATEGORIES.STATUS_UPDATE,
+    confidence: 0.3,
+    company: null,
+    actionNeeded: null,
+    error: lastError?.message || 'Categorization failed'
+  }));
 }
