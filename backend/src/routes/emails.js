@@ -272,7 +272,7 @@ router.post('/categorize-batch', requireAuth, async (req, res) => {
             from: getHeader('From'),
             subject: getHeader('Subject'),
             snippet: message.data.snippet,
-            body: body.substring(0, 500),
+            body: body.substring(0, 2000),
             date: getHeader('Date'),
             relevance: calculateRelevanceScore({ from: getHeader('From'), subject: getHeader('Subject'), snippet: message.data.snippet })
           };

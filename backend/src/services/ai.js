@@ -85,7 +85,7 @@ export async function categorizeEmailsBatch(emailsData) {
   }
   
   const emailDescriptions = emailsData.map((email, index) => {
-    const body = email.body ? email.body.substring(0, 800) : '';
+    const body = email.body ? email.body.substring(0, 1200) : '';
     return `[EMAIL ${index + 1}]
 FROM: ${email.from}
 SUBJECT: ${email.subject}
@@ -94,19 +94,22 @@ BODY: ${email.snippet} ${body}`;
   
   const prompt = `Categorize each email into exactly ONE category.
 
-CATEGORY RULES (in priority order):
-1. APPLICATION_RECEIVED - ANY "thank you for applying", "thanks for your interest", "application received", "we received your application", acknowledgment of submission
-2. OA_REQUIRED - Contains coding challenge link (HackerRank, Codility, CodeSignal, LeetCode) or assessment
-3. INTERVIEW_SCHEDULE - Asking to pick/schedule interview time
-4. INTERVIEW_CONFIRMATION - Interview already scheduled with date/time
-5. OFFER - Explicit job offer with compensation details
-6. REJECTION - "not moving forward", "other candidates", "position filled"
-7. FOLLOW_UP - Requesting documents, references, or specific action
+CATEGORY RULES (check in this order, use FIRST match):
+1. REJECTION - "regret to inform", "not selected", "not moving forward", "decided not to proceed", "other candidates", "position filled", "unfortunately", "will not be moving forward", "not be able to offer"
+2. OFFER - Explicit job offer with compensation/salary details
+3. OA_REQUIRED - Contains coding challenge link (HackerRank, Codility, CodeSignal, LeetCode) or assessment request
+4. INTERVIEW_SCHEDULE - Asking to pick/schedule interview time
+5. INTERVIEW_CONFIRMATION - Interview already scheduled with specific date/time
+6. FOLLOW_UP - Requesting documents, references, or specific action from you
+7. APPLICATION_RECEIVED - "thank you for applying", "thanks for your interest", "application received", "we received your application" (ONLY if no rejection language)
 8. RECRUITER_OUTREACH - Cold outreach, job board emails (SWE List, Simplify), "your profile matches"
 9. NOT_JOB_RELATED - Piazza, school forums, LinkedIn notifications, social media
-10. STATUS_UPDATE - ONLY if none of above fit. Mid-process updates like "still reviewing"
+10. STATUS_UPDATE - ONLY if none of above fit. Mid-process updates like "still reviewing", "moved to next round"
 
-IMPORTANT: "Thank you for applying" = APPLICATION_RECEIVED, not STATUS_UPDATE
+CRITICAL RULES:
+- "regret to inform" or "not been selected" = REJECTION (never STATUS_UPDATE)
+- "thank you for your interest" + rejection language = REJECTION
+- "thank you for applying" alone = APPLICATION_RECEIVED
 
 ${emailDescriptions}
 
@@ -123,7 +126,7 @@ JSON array response (no markdown):
         messages: [
         {
           role: 'system',
-          content: 'Categorize job emails. CRITICAL: "Thank you for applying/your interest" = APPLICATION_RECEIVED (never STATUS_UPDATE). STATUS_UPDATE is only for mid-process updates. Respond with JSON array only.'
+          content: 'Categorize job emails. CRITICAL RULES: "regret to inform" or "not selected" = REJECTION. "Thank you for applying" without rejection = APPLICATION_RECEIVED. STATUS_UPDATE is ONLY for mid-process updates like "still reviewing". Respond with JSON array only.'
         },
           { role: 'user', content: prompt }
         ],
