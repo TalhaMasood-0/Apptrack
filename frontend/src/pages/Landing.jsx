@@ -145,6 +145,7 @@ function Landing() {
             <CheckCircle2 size={16} />
             <span>Read-only access</span>
           </div>
+          <a href="/privacy" className="footer-link">Privacy Policy</a>
         </div>
       </footer>
     </div>

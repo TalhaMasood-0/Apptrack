@@ -139,6 +139,8 @@ function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [newEmailAlert, setNewEmailAlert] = useState(null);
   const [completedActions, setCompletedActions] = useState({});
+  const [nextPageToken, setNextPageToken] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Handle new emails from WebSocket
   const handleNewEmails = useCallback((newEmails) => {
@@ -183,16 +185,29 @@ function Dashboard() {
     }
   }
 
-  async function fetchEmails() {
-    setLoading(true);
+  async function fetchEmails(pageToken = null, append = false) {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     try {
       const filterParam = showAllEmails ? 'false' : 'true';
-      const res = await fetch(`${config.apiUrl}/api/emails?maxResults=50&filterJobs=${filterParam}`, { 
-        credentials: 'include' 
-      });
+      let url = `${config.apiUrl}/api/emails?maxResults=50&filterJobs=${filterParam}`;
+      if (pageToken) {
+        url += `&pageToken=${pageToken}`;
+      }
+      const res = await fetch(url, { credentials: 'include' });
       const data = await res.json();
       const fetchedEmails = data.emails || [];
-      setEmails(fetchedEmails);
+      
+      if (append) {
+        setEmails(prev => [...prev, ...fetchedEmails]);
+      } else {
+        setEmails(fetchedEmails);
+      }
+      
+      setNextPageToken(data.nextPageToken || null);
       setStats({
         total: data.totalFetched || fetchedEmails.length,
         jobRelated: data.jobRelatedCount || fetchedEmails.length
@@ -216,13 +231,25 @@ function Dashboard() {
         }
       });
       
-      setCategories(storedCats);
-      setCompletedActions(completedStatus);
+      if (append) {
+        setCategories(prev => ({ ...prev, ...storedCats }));
+        setCompletedActions(prev => ({ ...prev, ...completedStatus }));
+      } else {
+        setCategories(storedCats);
+        setCompletedActions(completedStatus);
+      }
       
     } catch (error) {
       console.error('Failed to fetch emails:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  }
+
+  async function loadMoreEmails() {
+    if (nextPageToken && !loadingMore) {
+      await fetchEmails(nextPageToken, true);
     }
   }
 
@@ -712,6 +739,23 @@ function Dashboard() {
                   </div>
                 );
               })}
+              
+              {nextPageToken && (
+                <button 
+                  className="load-more-btn"
+                  onClick={loadMoreEmails}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 size={16} className="spinning" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More Emails'
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -309,6 +309,18 @@
   color: #2D8A4E;
 }
 
+.footer-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-left: 24px;
+}
+
+.footer-link:hover {
+  color: var(--accent-warm);
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .email-row {
     grid-template-columns: 1fr;

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
+import Privacy from './pages/Privacy';
 import { AuthContext } from './context/AuthContext';
 import config from './config';
 
@@ -49,6 +50,7 @@ function App() {
       <Routes>
         <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Landing />} />
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/" />} />
+        <Route path="/privacy" element={<Privacy />} />
       </Routes>
     </AuthContext.Provider>
   );

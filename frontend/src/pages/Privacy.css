@@ -1,0 +1,72 @@
+.privacy-page {
+  min-height: 100vh;
+  background: #FFFBF7;
+  padding: 60px 20px;
+}
+
+.privacy-container {
+  max-width: 700px;
+  margin: 0 auto;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.privacy-container h1 {
+  font-size: 2.5rem;
+  color: #2C2C2C;
+  margin-bottom: 8px;
+}
+
+.privacy-container .updated {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 40px;
+}
+
+.privacy-container section {
+  margin-bottom: 32px;
+}
+
+.privacy-container h2 {
+  font-size: 1.25rem;
+  color: #2C2C2C;
+  margin-bottom: 12px;
+}
+
+.privacy-container p {
+  color: #444;
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+
+.privacy-container ul {
+  color: #444;
+  line-height: 1.8;
+  padding-left: 24px;
+}
+
+.privacy-container li {
+  margin-bottom: 8px;
+}
+
+.privacy-container strong {
+  color: #2C2C2C;
+}
+
+.privacy-container a {
+  color: #C96A3C;
+  text-decoration: none;
+}
+
+.privacy-container a:hover {
+  text-decoration: underline;
+}
+
+.back-link {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid #E5E5E5;
+}
+
+.back-link a {
+  font-weight: 500;
+}
