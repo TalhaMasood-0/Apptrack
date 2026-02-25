@@ -115,7 +115,7 @@ router.get('/', requireAuth, async (req, res) => {
     
     res.json({
       emails: resultEmails,
-      totalFetched: emails.length,
+      totalFetched: resultEmails.length,
       jobRelatedCount: resultEmails.length,
       nextPageToken: listResponse.data.nextPageToken
     });

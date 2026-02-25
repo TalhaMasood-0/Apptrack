@@ -598,10 +598,7 @@ function Dashboard() {
                CATEGORY_CONFIG[filter]?.name || 'Emails'}
             </h1>
             <span className="email-count">
-              {showAllEmails 
-                ? `${filteredEmails.length} emails`
-                : `${stats.jobRelated} job-related of ${stats.total} fetched`
-              }
+              {filteredEmails.length} emails
             </span>
           </div>
           <div className="header-actions">
