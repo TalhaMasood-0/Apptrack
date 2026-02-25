@@ -4,7 +4,7 @@ import { categorizeEmail, categorizeEmailsBatch, CATEGORIES } from '../services/
 import { calculateRelevanceScore, filterJobRelatedEmails } from '../services/filter.js';
 import { 
   upsertEmail, getEmailCategoriesBatch, updateEmailCategory, 
-  toggleActionComplete, isConnected as dbConnected 
+  toggleActionComplete, isConnected as dbConnected, getAllCategorizedEmails 
 } from '../services/database.js';
 
 const router = Router();
@@ -76,11 +76,6 @@ router.get('/', requireAuth, async (req, res) => {
     const gmailIds = emails.map(e => e.id);
     const storedCategories = await getEmailCategoriesBatch(gmailIds, userEmail);
     
-    const storedCount = Object.keys(storedCategories).length;
-    if (storedCount > 0) {
-      console.log(`Loaded ${storedCount} stored categories for ${userEmail}`);
-    }
-    
     let resultEmails = emails.map(email => ({
       ...email,
       relevance: calculateRelevanceScore(email),
@@ -91,12 +86,24 @@ router.get('/', requireAuth, async (req, res) => {
       resultEmails = resultEmails.filter(email => 
         email.relevance.score >= 6 || email.storedCategory !== null
       );
+      
+      // Include older categorized emails from database that aren't in current Gmail fetch
+      if (dbConnected()) {
+        const dbEmails = await getAllCategorizedEmails(userEmail);
+        const existingIds = new Set(resultEmails.map(e => e.id));
+        const olderCategorizedEmails = dbEmails.filter(e => !existingIds.has(e.id));
+        
+        if (olderCategorizedEmails.length > 0) {
+          console.log(`Adding ${olderCategorizedEmails.length} older categorized emails from database`);
+          resultEmails = [...resultEmails, ...olderCategorizedEmails];
+        }
+      }
     }
     
     res.json({
       emails: resultEmails,
       totalFetched: emails.length,
-      jobRelatedCount: filterJobs === 'true' ? resultEmails.length : emails.length,
+      jobRelatedCount: resultEmails.length,
       nextPageToken: listResponse.data.nextPageToken
     });
   } catch (error) {

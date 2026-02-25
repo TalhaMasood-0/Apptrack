@@ -242,6 +242,35 @@ export async function getCompletedActions(userEmail) {
   return completed;
 }
 
+export async function getAllCategorizedEmails(userEmail) {
+  if (!pool) return [];
+  
+  const result = await pool.query(
+    `SELECT gmail_id, thread_id, sender as "from", subject, snippet, received_date as date, 
+            category, category_confidence, company, action_needed, is_action_complete
+     FROM emails WHERE user_email = $1 AND category IS NOT NULL
+     ORDER BY received_date DESC`,
+    [userEmail]
+  );
+  
+  return result.rows.map(row => ({
+    id: row.gmail_id,
+    threadId: row.thread_id,
+    from: row.from,
+    subject: row.subject,
+    snippet: row.snippet,
+    date: row.date,
+    storedCategory: {
+      category: row.category,
+      confidence: parseFloat(row.category_confidence) || 0.8,
+      company: row.company,
+      actionNeeded: row.action_needed,
+      isActionComplete: row.is_action_complete
+    },
+    fromDatabase: true
+  }));
+}
+
 export function isConnected() {
   return pool !== null;
 }

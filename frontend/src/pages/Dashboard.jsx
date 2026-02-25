@@ -193,7 +193,7 @@ function Dashboard() {
     }
     try {
       const filterParam = showAllEmails ? 'false' : 'true';
-      let url = `${config.apiUrl}/api/emails?maxResults=50&filterJobs=${filterParam}`;
+      let url = `${config.apiUrl}/api/emails?maxResults=100&filterJobs=${filterParam}`;
       if (pageToken) {
         url += `&pageToken=${pageToken}`;
       }
