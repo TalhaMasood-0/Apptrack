@@ -83,21 +83,34 @@ router.get('/', requireAuth, async (req, res) => {
     }));
     
     if (filterJobs === 'true') {
+      // Include older categorized emails from database first
+      let dbEmails = [];
+      if (dbConnected()) {
+        try {
+          dbEmails = await getAllCategorizedEmails(userEmail);
+          console.log(`Found ${dbEmails.length} categorized emails in database`);
+        } catch (err) {
+          console.error('Failed to get categorized emails:', err.message);
+        }
+      }
+      
+      // Filter Gmail emails for job relevance OR if already categorized
       resultEmails = resultEmails.filter(email => 
         email.relevance.score >= 6 || email.storedCategory !== null
       );
       
-      // Include older categorized emails from database that aren't in current Gmail fetch
-      if (dbConnected()) {
-        const dbEmails = await getAllCategorizedEmails(userEmail);
-        const existingIds = new Set(resultEmails.map(e => e.id));
-        const olderCategorizedEmails = dbEmails.filter(e => !existingIds.has(e.id));
-        
-        if (olderCategorizedEmails.length > 0) {
-          console.log(`Adding ${olderCategorizedEmails.length} older categorized emails from database`);
-          resultEmails = [...resultEmails, ...olderCategorizedEmails];
-        }
+      console.log(`${resultEmails.length} job-relevant emails from Gmail fetch`);
+      
+      // Add database emails that aren't in Gmail results
+      const existingIds = new Set(resultEmails.map(e => e.id));
+      const olderCategorizedEmails = dbEmails.filter(e => !existingIds.has(e.id));
+      
+      if (olderCategorizedEmails.length > 0) {
+        console.log(`Adding ${olderCategorizedEmails.length} older categorized emails from database`);
+        resultEmails = [...resultEmails, ...olderCategorizedEmails];
       }
+      
+      console.log(`Total emails to return: ${resultEmails.length}`);
     }
     
     res.json({
