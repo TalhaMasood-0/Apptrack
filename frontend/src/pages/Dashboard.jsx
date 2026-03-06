@@ -202,7 +202,11 @@ function Dashboard() {
       const fetchedEmails = data.emails || [];
       
       if (append) {
-        setEmails(prev => [...prev, ...fetchedEmails]);
+        setEmails(prev => {
+          const existingIds = new Set(prev.map(e => e.id));
+          const newEmails = fetchedEmails.filter(e => !existingIds.has(e.id));
+          return [...prev, ...newEmails];
+        });
       } else {
         setEmails(fetchedEmails);
       }

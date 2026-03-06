@@ -82,36 +82,33 @@ router.get('/', requireAuth, async (req, res) => {
       storedCategory: storedCategories[email.id] || null
     }));
     
-    if (filterJobs === 'true') {
-      // Include older categorized emails from database first
-      let dbEmails = [];
-      if (dbConnected()) {
-        try {
-          dbEmails = await getAllCategorizedEmails(userEmail);
-          console.log(`Found ${dbEmails.length} categorized emails in database`);
-        } catch (err) {
-          console.error('Failed to get categorized emails:', err.message);
-        }
+    // Always fetch categorized emails from database
+    let dbEmails = [];
+    if (dbConnected()) {
+      try {
+        dbEmails = await getAllCategorizedEmails(userEmail);
+      } catch (err) {
+        console.error('Failed to get categorized emails:', err.message);
       }
-      
+    }
+    
+    if (filterJobs === 'true') {
       // Filter Gmail emails for job relevance OR if already categorized
       resultEmails = resultEmails.filter(email => 
         email.relevance.score >= 6 || email.storedCategory !== null
       );
-      
-      console.log(`${resultEmails.length} job-relevant emails from Gmail fetch`);
-      
-      // Add database emails that aren't in Gmail results
-      const existingIds = new Set(resultEmails.map(e => e.id));
-      const olderCategorizedEmails = dbEmails.filter(e => !existingIds.has(e.id));
-      
-      if (olderCategorizedEmails.length > 0) {
-        console.log(`Adding ${olderCategorizedEmails.length} older categorized emails from database`);
-        resultEmails = [...resultEmails, ...olderCategorizedEmails];
-      }
-      
-      console.log(`Total emails to return: ${resultEmails.length}`);
     }
+    
+    // Always add database emails that aren't in Gmail results
+    const existingIds = new Set(resultEmails.map(e => e.id));
+    const olderCategorizedEmails = dbEmails.filter(e => !existingIds.has(e.id));
+    
+    if (olderCategorizedEmails.length > 0) {
+      resultEmails = [...resultEmails, ...olderCategorizedEmails];
+    }
+    
+    // Sort by date descending (newest first)
+    resultEmails.sort((a, b) => new Date(b.date) - new Date(a.date));
     
     res.json({
       emails: resultEmails,

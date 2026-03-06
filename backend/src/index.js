@@ -3,6 +3,8 @@ import cors from 'cors';
 import session from 'express-session';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
+import { readFileSync } from 'fs';
 import authRoutes from './routes/auth.js';
 import emailRoutes from './routes/emails.js';
 import { initPubSub } from './services/pubsub.js';
@@ -13,8 +15,18 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const server = createServer(app);
 const isProduction = process.env.NODE_ENV === 'production';
+
+let server;
+if (isProduction && process.env.SSL_CERT_PATH) {
+  const sslOptions = {
+    key: readFileSync(process.env.SSL_KEY_PATH),
+    cert: readFileSync(process.env.SSL_CERT_PATH)
+  };
+  server = createHttpsServer(sslOptions, app);
+} else {
+  server = createServer(app);
+}
 
 if (isProduction) {
   app.set('trust proxy', 1);
@@ -62,9 +74,22 @@ async function start() {
   initWebSocket(server);
   await initPubSub().catch(console.error);
   
-  server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  const listenPort = isProduction && process.env.SSL_CERT_PATH ? 443 : PORT;
+  server.listen(listenPort, () => {
+    const protocol = isProduction && process.env.SSL_CERT_PATH ? 'https' : 'http';
+    console.log(`Server running on ${protocol}://localhost:${listenPort}`);
   });
+  
+  // HTTP redirect to HTTPS in production
+  if (isProduction && process.env.SSL_CERT_PATH) {
+    const httpApp = express();
+    httpApp.get('*', (req, res) => {
+      res.redirect(`https://${req.headers.host}${req.url}`);
+    });
+    httpApp.listen(80, () => {
+      console.log('HTTP redirect server running on port 80');
+    });
+  }
 }
 
 start();
